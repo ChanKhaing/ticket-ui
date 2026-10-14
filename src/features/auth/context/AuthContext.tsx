@@ -4,80 +4,89 @@ import {
   useContext,
   useEffect,
   useState,
-  ReactNode,
-} from 'react';
-import axiosInstance from '@/lib/axios';
-import type { LoginResponse, User } from '@/types';
+  type ReactNode,
+} from 'react'
+import type { User } from '@/types'
+import { MOCK_USER, MOCK_ADMIN } from '@/data/mock'
 
 interface AuthContextValue {
-  user: User | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  logout: () => Promise<void>;
-  register: (data: RegisterInput) => Promise<void>;
-  refreshUser: () => Promise<void>;
+  user: User | null
+  isAuthenticated: boolean
+  isLoading: boolean
+  login: (email: string, password: string) => Promise<void>
+  logout: () => Promise<void>
+  register: (data: RegisterInput) => Promise<void>
+  updateUser: (updates: Partial<User>) => void
 }
 
 interface RegisterInput {
-  email: string;
-  password: string;
-  fullName: string;
+  email: string
+  password: string
+  fullName: string
 }
 
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const AuthContext = createContext<AuthContextValue | undefined>(undefined)
+
+const PJA_USER_KEY = 'pja_user'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  const refreshUser = useCallback(async () => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
-      setUser(null);
-      return;
-    }
-    try {
-      const { data } = await axiosInstance.get('/users/me');
-      setUser(data.data);
-    } catch {
-      setUser(null);
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-    }
-  }, []);
-
-  // On mount: token ရှိရင် user ကို ပြန် load
+  // Restore user from localStorage on mount
   useEffect(() => {
-    (async () => {
-      await refreshUser();
-      setIsLoading(false);
-    })();
-  }, [refreshUser]);
+    try {
+      const stored = localStorage.getItem(PJA_USER_KEY)
+      if (stored) {
+        setUser(JSON.parse(stored) as User)
+      }
+    } catch {
+      localStorage.removeItem(PJA_USER_KEY)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
   const login = useCallback(async (email: string, password: string) => {
-    const { data } = await axiosInstance.post<{ data: LoginResponse }>(
-      '/auth/login',
-      { email, password },
-    );
-    localStorage.setItem('accessToken', data.data.accessToken);
-    localStorage.setItem('refreshToken', data.data.refreshToken);
-    setUser(data.data.user);
-  }, []);
+    // Simulate network delay
+    await new Promise((r) => setTimeout(r, 600))
+
+    let resolvedUser: User
+
+    if (email === 'admin@pja.com') {
+      resolvedUser = MOCK_ADMIN
+    } else if (password === 'password123') {
+      resolvedUser = { ...MOCK_USER, email }
+    } else {
+      throw new Error('Invalid email or password. Use password: password123')
+    }
+
+    localStorage.setItem(PJA_USER_KEY, JSON.stringify(resolvedUser))
+    setUser(resolvedUser)
+  }, [])
 
   const logout = useCallback(async () => {
-    try {
-      await axiosInstance.post('/auth/logout');
-    } finally {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      setUser(null);
-    }
-  }, []);
+    localStorage.removeItem(PJA_USER_KEY)
+    setUser(null)
+  }, [])
 
-  const register = useCallback(async (input: RegisterInput) => {
-    await axiosInstance.post('/auth/register', input);
-  }, []);
+  const register = useCallback(
+    async (input: RegisterInput) => {
+      await new Promise((r) => setTimeout(r, 600))
+      // After register, auto-login as mock user
+      await login(input.email, 'password123')
+    },
+    [login],
+  )
+
+  const updateUser = useCallback((updates: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return prev
+      const updated = { ...prev, ...updates }
+      localStorage.setItem(PJA_USER_KEY, JSON.stringify(updated))
+      return updated
+    })
+  }, [])
 
   return (
     <AuthContext.Provider
@@ -88,16 +97,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         register,
-        refreshUser,
+        updateUser,
       }}
     >
       {children}
     </AuthContext.Provider>
-  );
+  )
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider')
+  return ctx
 }
