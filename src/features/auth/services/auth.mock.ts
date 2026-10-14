@@ -1,15 +1,16 @@
 import type { LoginInput, LoginResult } from '../types';
-import type { NormalizedError } from '@/types';
+import type { NormalizedError, User } from '@/types';
 
 const MOCK_DELAY_MS = 600;
 
-const MOCK_USER = {
-  id: 'mock-user-1',
+const MOCK_USER: User = {
+  _id: 'mock-user-1',
   email: 'admin@example.com',
   fullName: 'Mock Admin',
-  role: 'admin' as const,
-  status: 'active' as const,
+  role: { _id: 'r2', name: 'admin', permissions: ['*'] },
+  status: 'active',
   emailVerified: true,
+  createdAt: '2026-01-01T00:00:00Z',
 };
 
 export async function loginMock(input: LoginInput): Promise<LoginResult> {

@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { Calendar, MapPin, ArrowRight, Shield, Users, Zap, Ticket } from 'lucide-react'
+import { Calendar, MapPin, ArrowRight, Shield, Users, Ticket } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { MOCK_TICKETS } from '@/data/mock'

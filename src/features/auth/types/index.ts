@@ -1,4 +1,4 @@
-import type { AuthUser, UserRole } from '@/types';
+import type { AuthUser } from '@/types';
 
 export interface LoginInput {
   email: string;
@@ -12,5 +12,3 @@ export interface LoginResult {
   accessExpiresIn: number;
   refreshExpiresIn: number;
 }
-
-export type { UserRole };

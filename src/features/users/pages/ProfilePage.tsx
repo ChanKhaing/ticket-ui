@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CheckCircle2, Shield, User as UserIcon, Lock } from 'lucide-react'
+import { CheckCircle2, Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'

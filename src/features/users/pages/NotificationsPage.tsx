@@ -8,7 +8,6 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { PageHeader } from '@/components/shared/PageHeader'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { MOCK_NOTIFICATIONS } from '@/data/mock'
 import { timeAgo } from '@/lib/utils'
