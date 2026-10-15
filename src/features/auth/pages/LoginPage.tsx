@@ -149,10 +149,33 @@ export function LoginPage() {
             </form>
           </Form>
 
-          {/* Hint */}
-          <div className="mt-4 rounded-md bg-indigo-50 p-3 text-xs text-indigo-700">
-            <p><strong>Customer:</strong> any email + password: <code>password123</code></p>
-            <p><strong>Admin:</strong> admin@pja.com + any password</p>
+          {/* Quick Demo Credentials */}
+          <div className="mt-4 rounded-md border border-indigo-100 bg-indigo-50/70 p-3 text-xs text-indigo-700">
+            <p className="font-semibold text-indigo-900 mb-1.5">Quick Demo Accounts (1-Click Fill):</p>
+            <div className="flex flex-col gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  form.setValue('email', 'admin@pja.com')
+                  form.setValue('password', 'password123')
+                }}
+                className="flex items-center justify-between rounded bg-white px-2 py-1 text-left font-medium shadow-xs hover:bg-indigo-50 transition"
+              >
+                <span>🛡️ Admin: <code className="text-indigo-600">admin@pja.com</code></span>
+                <span className="text-[11px] text-muted-foreground">Fill</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  form.setValue('email', 'demo@example.com')
+                  form.setValue('password', 'password123')
+                }}
+                className="flex items-center justify-between rounded bg-white px-2 py-1 text-left font-medium shadow-xs hover:bg-indigo-50 transition"
+              >
+                <span>👤 Customer: <code className="text-indigo-600">demo@example.com</code></span>
+                <span className="text-[11px] text-muted-foreground">Fill</span>
+              </button>
+            </div>
           </div>
         </div>
 

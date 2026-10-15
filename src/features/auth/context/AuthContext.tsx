@@ -7,7 +7,9 @@ import {
   type ReactNode,
 } from 'react'
 import type { User } from '@/types'
-import { MOCK_USER, MOCK_ADMIN } from '@/data/mock'
+import { authService } from '../services/auth.service'
+import type { RegisterInput } from '../services/auth.api'
+import { normalizeUser } from '../services/auth.api'
 
 interface AuthContextValue {
   user: User | null
@@ -17,75 +19,123 @@ interface AuthContextValue {
   logout: () => Promise<void>
   register: (data: RegisterInput) => Promise<void>
   updateUser: (updates: Partial<User>) => void
-}
-
-interface RegisterInput {
-  email: string
-  password: string
-  fullName: string
+  refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 const PJA_USER_KEY = 'pja_user'
 
+function extractErrorMessage(err: unknown): string {
+  if (typeof err === 'object' && err !== null && 'response' in err) {
+    const axiosErr = err as { response?: { data?: { error?: { message?: string }; message?: string } } };
+    const backendMsg = axiosErr.response?.data?.error?.message || axiosErr.response?.data?.message;
+    if (backendMsg) return backendMsg;
+  }
+  return err instanceof Error ? err.message : 'An unexpected error occurred';
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Restore user from localStorage on mount
+  // Restore user from localStorage on mount & verify session
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(PJA_USER_KEY)
-      if (stored) {
-        setUser(JSON.parse(stored) as User)
+    async function initAuth() {
+      try {
+        const stored = localStorage.getItem(PJA_USER_KEY)
+        const token = localStorage.getItem('accessToken')
+
+        if (stored && token) {
+          const parsed = JSON.parse(stored)
+          const normalized = normalizeUser(parsed)
+          setUser(normalized)
+
+          // Background revalidation
+          authService.getMe()
+            .then((freshUser) => {
+              const freshNormalized = normalizeUser(freshUser)
+              setUser(freshNormalized)
+              localStorage.setItem(PJA_USER_KEY, JSON.stringify(freshNormalized))
+            })
+            .catch(() => {
+              // Ignore background fetch error, keep local session
+            })
+        }
+      } catch {
+        localStorage.removeItem(PJA_USER_KEY)
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('refreshToken')
+      } finally {
+        setIsLoading(false)
       }
-    } catch {
-      localStorage.removeItem(PJA_USER_KEY)
-    } finally {
-      setIsLoading(false)
     }
+
+    initAuth()
   }, [])
 
   const login = useCallback(async (email: string, password: string) => {
-    // Simulate network delay
-    await new Promise((r) => setTimeout(r, 600))
+    try {
+      const res = await authService.login({ email, password })
+      const normalized = normalizeUser(res.user)
 
-    let resolvedUser: User
+      localStorage.setItem('accessToken', res.accessToken)
+      localStorage.setItem('refreshToken', res.refreshToken)
+      localStorage.setItem(PJA_USER_KEY, JSON.stringify(normalized))
 
-    if (email === 'admin@pja.com') {
-      resolvedUser = MOCK_ADMIN
-    } else if (password === 'password123') {
-      resolvedUser = { ...MOCK_USER, email }
-    } else {
-      throw new Error('Invalid email or password. Use password: password123')
+      setUser(normalized)
+    } catch (err) {
+      throw new Error(extractErrorMessage(err))
     }
-
-    localStorage.setItem(PJA_USER_KEY, JSON.stringify(resolvedUser))
-    setUser(resolvedUser)
   }, [])
 
   const logout = useCallback(async () => {
-    localStorage.removeItem(PJA_USER_KEY)
-    setUser(null)
+    const refreshToken = localStorage.getItem('refreshToken') || undefined
+    try {
+      await authService.logout(refreshToken)
+    } catch {
+      // Ignore network errors during logout
+    } finally {
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('refreshToken')
+      localStorage.removeItem(PJA_USER_KEY)
+      setUser(null)
+    }
   }, [])
 
-  const register = useCallback(
-    async (input: RegisterInput) => {
-      await new Promise((r) => setTimeout(r, 600))
-      // After register, auto-login as mock user
-      await login(input.email, 'password123')
-    },
-    [login],
-  )
+  const register = useCallback(async (input: RegisterInput) => {
+    try {
+      const res = await authService.register(input)
+      const normalized = normalizeUser(res.user)
+
+      localStorage.setItem('accessToken', res.accessToken)
+      localStorage.setItem('refreshToken', res.refreshToken)
+      localStorage.setItem(PJA_USER_KEY, JSON.stringify(normalized))
+
+      setUser(normalized)
+    } catch (err) {
+      throw new Error(extractErrorMessage(err))
+    }
+  }, [])
 
   const updateUser = useCallback((updates: Partial<User>) => {
     setUser((prev) => {
       if (!prev) return prev
-      const updated = { ...prev, ...updates }
+      const updated = normalizeUser({ ...prev, ...updates })
       localStorage.setItem(PJA_USER_KEY, JSON.stringify(updated))
       return updated
     })
+  }, [])
+
+  const refreshProfile = useCallback(async () => {
+    try {
+      const freshUser = await authService.getMe()
+      const normalized = normalizeUser(freshUser)
+      setUser(normalized)
+      localStorage.setItem(PJA_USER_KEY, JSON.stringify(normalized))
+    } catch {
+      // Silent error
+    }
   }, [])
 
   return (
@@ -98,6 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         register,
         updateUser,
+        refreshProfile,
       }}
     >
       {children}

@@ -47,7 +47,7 @@ export function RegisterPage() {
     try {
       await register({ fullName: values.fullName, email: values.email, password: values.password })
       toast.success('Account created! Welcome to PJ-A')
-      navigate('/user/orders')
+      navigate('/verify-otp', { state: { email: values.email } })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Registration failed')
     } finally {

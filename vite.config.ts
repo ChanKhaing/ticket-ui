@@ -13,4 +13,13 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    proxy: {
+      '/mailhog-api': {
+        target: 'http://localhost:8025',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/mailhog-api/, ''),
+      },
+    },
+  },
 })
