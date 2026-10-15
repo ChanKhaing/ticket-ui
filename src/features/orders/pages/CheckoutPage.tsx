@@ -33,6 +33,9 @@ export function CheckoutPage() {
   const [isSuccess, setIsSuccess] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<'kpay' | 'wave' | 'card'>('kpay')
 
+  // Payment Amount Input (User can type in or verify)
+  const [enteredAmount, setEnteredAmount] = useState<string>('')
+
   // Demo Payment Form States
   const [kpayPhone, setKpayPhone] = useState(user?.phone || '09798765432')
   const [kpayPin, setKpayPin] = useState('123456')
@@ -53,6 +56,7 @@ export function CheckoutPage() {
       .getOrderById(orderId)
       .then((data) => {
         setOrder(data)
+        setEnteredAmount(String(data.totalAmount))
         if (data.status === 'paid' || data.status === 'completed') {
           setIsSuccess(true)
         }
@@ -68,6 +72,19 @@ export function CheckoutPage() {
   const handleConfirmPayment = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!order) return
+
+    const numAmount = Number(enteredAmount)
+    if (!enteredAmount || isNaN(numAmount) || numAmount <= 0) {
+      toast.error('ကျေးဇူးပြု၍ ပေးချေမည့် ငွေပမာဏကို မှန်ကန်စွာ ရိုက်ထည့်ပါ')
+      return
+    }
+
+    if (numAmount < order.totalAmount) {
+      toast.error(
+        `ရိုက်ထည့်သော ငွေပမာဏ (${formatCurrency(numAmount)}) သည် ကျသင့်ငွေ (${formatCurrency(order.totalAmount)}) ထက် နည်းနေပါသည်`,
+      )
+      return
+    }
 
     // Demo validation
     if (paymentMethod === 'kpay' && (!kpayPhone || !kpayPin)) {
@@ -164,7 +181,7 @@ export function CheckoutPage() {
             <div className="flex justify-between py-1 text-sm">
               <span className="text-muted-foreground">Amount Paid</span>
               <span className="font-bold text-indigo-600">
-                {formatCurrency(order.totalAmount)}
+                {formatCurrency(Number(enteredAmount) || order.totalAmount)}
               </span>
             </div>
             <div className="flex justify-between py-1 text-sm">
@@ -223,6 +240,52 @@ export function CheckoutPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Enter Payment Amount Section (Requested by User) */}
+        <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-gray-900 uppercase tracking-wider">
+              ကျသင့်ငွေ ရိုက်ထည့်ပါ (Payment Amount)
+            </label>
+            <span className="text-xs text-muted-foreground">
+              ကျသင့်ငွေ: <strong className="text-indigo-600">{formatCurrency(order.totalAmount)}</strong>
+            </span>
+          </div>
+
+          <div className="relative">
+            <Input
+              type="number"
+              placeholder={String(order.totalAmount)}
+              value={enteredAmount}
+              onChange={(e) => setEnteredAmount(e.target.value)}
+              className="font-mono text-xl font-bold text-gray-900 pr-16 bg-white border-indigo-200 focus-visible:ring-indigo-500"
+              required
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">
+              MMK
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between text-xs pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                setEnteredAmount(String(order.totalAmount))
+                toast.success(`Filled exact amount: ${formatCurrency(order.totalAmount)}`)
+              }}
+              className="text-[11px] text-indigo-700 hover:underline font-medium flex items-center gap-1"
+            >
+              <Sparkles className="h-3 w-3" />
+              Pay Exact Total ({formatCurrency(order.totalAmount)})
+            </button>
+            {Number(enteredAmount) >= order.totalAmount && (
+              <span className="text-[11px] font-medium text-green-600 flex items-center gap-1">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Amount Matches Total
+              </span>
+            )}
           </div>
         </div>
 
@@ -455,7 +518,7 @@ export function CheckoutPage() {
           <div className="flex items-center justify-between text-base font-bold text-gray-900">
             <span>Total Payable</span>
             <span className="text-2xl text-indigo-600">
-              {formatCurrency(order.totalAmount)}
+              {formatCurrency(Number(enteredAmount) || order.totalAmount)}
             </span>
           </div>
 
@@ -482,7 +545,7 @@ export function CheckoutPage() {
               ) : (
                 <>
                   <Lock className="mr-2 h-4 w-4" />
-                  Confirm & Pay {formatCurrency(order.totalAmount)}
+                  Confirm & Pay {formatCurrency(Number(enteredAmount) || order.totalAmount)}
                 </>
               )}
             </Button>

@@ -62,6 +62,7 @@ export default function App() {
             <Route element={<UserLayout />}>
               <Route path="/user/orders" element={<OrderListPage />} />
               <Route path="/user/checkout/:orderId" element={<CheckoutPage />} />
+              <Route path="/checkout/:orderId" element={<CheckoutPage />} />
               <Route path="/user/tickets" element={<MyTicketsPage />} />
               <Route path="/user/tickets/:id" element={<MyTicketDetailPage />} />
               <Route path="/user/support" element={<SupportListPage />} />
