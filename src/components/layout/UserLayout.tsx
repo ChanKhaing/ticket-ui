@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   ShoppingCart,
@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useAuth } from '@/features/auth/context/AuthContext'
-import { MOCK_NOTIFICATIONS } from '@/data/mock'
+import { notificationsApi } from '@/features/users/services/notifications.api'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
@@ -41,11 +41,11 @@ function initials(name: string) {
     .slice(0, 2)
 }
 
-function SidebarContent({ onClose }: { onClose?: () => void }) {
+function SidebarContent({ onClose, unreadCount = 0 }: { onClose?: () => void; unreadCount?: number }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const unread = MOCK_NOTIFICATIONS.filter((n) => !n.isRead).length
+  const unread = unreadCount
 
   const handleLogout = async () => {
     await logout()
@@ -126,7 +126,22 @@ export function UserLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const [open, setOpen] = useState(false)
-  const unread = MOCK_NOTIFICATIONS.filter((n) => !n.isRead).length
+  const [unread, setUnread] = useState(0)
+
+  const fetchUnread = useCallback(async () => {
+    try {
+      const count = await notificationsApi.getUnreadCount()
+      setUnread(count)
+    } catch {
+      // silent fail
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchUnread()
+    const timer = setInterval(fetchUnread, 15000)
+    return () => clearInterval(timer)
+  }, [fetchUnread, location.pathname])
 
   const handleLogout = async () => {
     await logout()
@@ -141,14 +156,14 @@ export function UserLayout() {
     <div className="flex min-h-screen w-full bg-gray-50">
       {/* Desktop Sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 lg:block">
-        <SidebarContent />
+        <SidebarContent unreadCount={unread} />
       </aside>
 
       {/* Mobile Sidebar */}
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" className="w-64 border-0 p-0">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <SidebarContent onClose={() => setOpen(false)} />
+          <SidebarContent onClose={() => setOpen(false)} unreadCount={unread} />
         </SheetContent>
       </Sheet>
 
