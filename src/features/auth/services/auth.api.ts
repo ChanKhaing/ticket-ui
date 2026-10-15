@@ -75,8 +75,16 @@ export async function verifyOtpApi(email: string, code: string): Promise<{ messa
   return res.data?.data ?? res.data;
 }
 
-export async function forgotPasswordApi(email: string): Promise<{ message: string; expiresIn: number }> {
+export async function forgotPasswordApi(email: string): Promise<{ message: string; email: string; expiresIn: number }> {
   const res = await axiosInstance.post('/auth/forgot', { email });
+  return res.data?.data ?? res.data;
+}
+
+export async function verifyResetOtpApi(
+  email: string,
+  code: string,
+): Promise<{ message: string; resetToken: string }> {
+  const res = await axiosInstance.post('/auth/verify-reset-otp', { email, code });
   return res.data?.data ?? res.data;
 }
 
