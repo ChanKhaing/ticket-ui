@@ -83,6 +83,7 @@ export default function App() {
               <Route path="/admin/orders" element={<AdminOrdersPage />} />
               <Route path="/admin/payments" element={<AdminPaymentsPage />} />
               <Route path="/admin/support" element={<AdminSupportPage />} />
+              <Route path="/admin/support/:id" element={<SupportChatPage />} />
               <Route path="/admin/logs" element={<AdminLogsPage />} />
             </Route>
           </Route>

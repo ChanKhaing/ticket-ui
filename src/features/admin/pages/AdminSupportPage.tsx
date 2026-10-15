@@ -227,7 +227,7 @@ export function AdminSupportPage() {
                         className="h-8 gap-1 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
                         asChild
                       >
-                        <Link to={`/user/support/${ticket._id}`}>
+                        <Link to={`/admin/support/${ticket._id}`}>
                           <MessageCircle className="h-3.5 w-3.5" />
                           Open Chat
                         </Link>
