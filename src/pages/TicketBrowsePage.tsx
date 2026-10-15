@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Search, Calendar, MapPin, Ticket, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,7 @@ const CATEGORIES = ['All', 'Concert', 'Workshop', 'Festival', 'Sports', 'Other']
 const PAGE_SIZE = 6
 
 export function TicketBrowsePage() {
+  const navigate = useNavigate()
   const [tickets, setTickets] = useState<TicketType[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -157,7 +158,8 @@ export function TicketBrowsePage() {
               return (
                 <div
                   key={ticket._id}
-                  className="relative flex flex-col rounded-xl border bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden"
+                  onClick={() => navigate(`/tickets/${ticket._id}`)}
+                  className="group cursor-pointer relative flex flex-col rounded-xl border bg-white shadow-sm hover:shadow-md hover:border-indigo-400 transition-all overflow-hidden"
                 >
                   {/* Image placeholder or real image */}
                   <div className="relative h-44 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
@@ -165,11 +167,11 @@ export function TicketBrowsePage() {
                       <img
                         src={ticket.images[0]}
                         alt={ticket.name}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <Ticket className="h-12 w-12 text-white/50" />
+                        <Ticket className="h-12 w-12 text-white/50 group-hover:scale-110 transition-transform duration-300" />
                       </div>
                     )}
                     {ticket.category && (
@@ -191,7 +193,9 @@ export function TicketBrowsePage() {
 
                   {/* Body */}
                   <div className="flex flex-col flex-1 p-5">
-                    <h3 className="font-bold text-gray-900 text-lg line-clamp-1">{ticket.name}</h3>
+                    <h3 className="font-bold text-gray-900 text-lg line-clamp-1 group-hover:text-indigo-600 transition-colors">
+                      {ticket.name}
+                    </h3>
 
                     <div className="mt-3 space-y-1.5 text-xs text-muted-foreground">
                       <div className="flex items-center gap-1.5">
