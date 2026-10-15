@@ -6,11 +6,12 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { useAuth } from '@/features/auth/context/AuthContext'
 import { toast } from 'sonner'
+import { usersApi } from '../services/users.api'
 
 export function ProfilePage() {
   const { user, updateUser } = useAuth()
   const [fullName, setFullName] = useState(user?.fullName || '')
-  const [phone, setPhone] = useState(user?.phone || '09-123456789')
+  const [phone, setPhone] = useState(user?.phone || '')
   const [saving, setSaving] = useState(false)
 
   // Password change state
@@ -23,26 +24,42 @@ export function ProfilePage() {
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
-    await new Promise((r) => setTimeout(r, 500))
-    updateUser({ fullName, phone })
-    setSaving(false)
-    toast.success('Profile details updated successfully')
+    try {
+      const updated = await usersApi.updateProfile({ fullName, phone })
+      updateUser(updated)
+      toast.success('Profile details updated successfully')
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || err.message || 'Failed to update profile'
+      toast.error(msg)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (newPassword.length < 8) {
+      toast.error('New password must be at least 8 characters')
+      return
+    }
     if (newPassword !== confirmPassword) {
       toast.error('New passwords do not match')
       return
     }
     setChangingPassword(true)
-    await new Promise((r) => setTimeout(r, 600))
-    setChangingPassword(false)
-    setShowPasswordForm(false)
-    setCurrentPassword('')
-    setNewPassword('')
-    setConfirmPassword('')
-    toast.success('Password changed successfully')
+    try {
+      await usersApi.changePassword({ currentPassword, newPassword })
+      setShowPasswordForm(false)
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      toast.success('Password changed successfully')
+    } catch (err: any) {
+      const msg = err.response?.data?.error?.message || err.message || 'Failed to change password'
+      toast.error(msg)
+    } finally {
+      setChangingPassword(false)
+    }
   }
 
   const initials = (user?.fullName || 'U')
