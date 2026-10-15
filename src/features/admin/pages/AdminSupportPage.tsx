@@ -1,6 +1,8 @@
-import { useState, useMemo } from 'react'
-import { Search } from 'lucide-react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
+import { Search, RefreshCw, MessageCircle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -19,60 +21,85 @@ import {
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { PriorityBadge } from '@/components/shared/PriorityBadge'
-import { MOCK_SUPPORT } from '@/data/mock'
 import { timeAgo } from '@/lib/utils'
+import { supportApi } from '@/features/support/services/support.api'
 import type { SupportTicket, SupportPriority, SupportStatus } from '@/types'
 import { toast } from 'sonner'
 
 export function AdminSupportPage() {
-  const [tickets, setTickets] = useState<SupportTicket[]>(MOCK_SUPPORT)
+  const [tickets, setTickets] = useState<SupportTicket[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [priorityFilter, setPriorityFilter] = useState('all')
+
+  const fetchTickets = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await supportApi.getAdminTickets({
+        status: statusFilter !== 'all' ? (statusFilter as SupportStatus) : undefined,
+        priority: priorityFilter !== 'all' ? (priorityFilter as SupportPriority) : undefined,
+        limit: 100,
+      })
+      setTickets(res.tickets)
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || 'Failed to load support tickets')
+    } finally {
+      setLoading(false)
+    }
+  }, [statusFilter, priorityFilter])
+
+  useEffect(() => {
+    fetchTickets()
+  }, [fetchTickets])
 
   const filtered = useMemo(() => {
     return tickets.filter((t) => {
       const matchSearch =
         t.ticketCode.toLowerCase().includes(search.toLowerCase()) ||
         t.subject.toLowerCase().includes(search.toLowerCase())
-      const matchStatus = statusFilter === 'all' || t.status === statusFilter
-      const matchPriority =
-        priorityFilter === 'all' || t.priority === priorityFilter
-      return matchSearch && matchStatus && matchPriority
+      return matchSearch
     })
-  }, [tickets, search, statusFilter, priorityFilter])
+  }, [tickets, search])
 
-  const handleAssignAgent = (ticketId: string, agentName: string) => {
-    setTickets((prev) =>
-      prev.map((t) =>
-        t._id === ticketId
-          ? { ...t, agentId: agentName, status: 'in_progress' }
-          : t
-      )
-    )
-    toast.success(`Agent assigned to ${ticketId}`)
+  const handleChangePriority = async (ticketId: string, priority: SupportPriority) => {
+    try {
+      const updated = await supportApi.updatePriority(ticketId, priority)
+      setTickets((prev) => prev.map((t) => (t._id === ticketId ? updated : t)))
+      toast.success(`Priority updated to ${priority}`)
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || 'Failed to update priority')
+    }
   }
 
-  const handleChangePriority = (ticketId: string, priority: SupportPriority) => {
-    setTickets((prev) =>
-      prev.map((t) => (t._id === ticketId ? { ...t, priority } : t))
-    )
-    toast.success(`Priority updated to ${priority}`)
-  }
-
-  const handleUpdateStatus = (ticketId: string, status: SupportStatus) => {
-    setTickets((prev) =>
-      prev.map((t) => (t._id === ticketId ? { ...t, status } : t))
-    )
-    toast.success(`Ticket marked as ${status}`)
+  const handleUpdateStatus = async (ticketId: string, status: SupportStatus) => {
+    try {
+      const updated = await supportApi.updateStatus(ticketId, status)
+      setTickets((prev) => prev.map((t) => (t._id === ticketId ? updated : t)))
+      toast.success(`Ticket marked as ${status}`)
+    } catch (err: any) {
+      toast.error(err.response?.data?.error?.message || 'Failed to update status')
+    }
   }
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Support Management"
-        subtitle="Customer inquiries, incident resolution workflows, and agent assignment"
-      />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <PageHeader
+          title="Support Management"
+          subtitle="Customer inquiries, incident resolution workflows, and ticket response"
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={fetchTickets}
+          disabled={loading}
+          className="gap-1.5 self-start sm:self-auto"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </div>
 
       {/* Filter bar */}
       <div className="flex flex-wrap gap-3 rounded-xl border bg-white p-4 shadow-xs">
@@ -115,94 +142,103 @@ export function AdminSupportPage() {
 
       {/* Table */}
       <div className="rounded-xl border bg-white shadow-xs overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Code</TableHead>
-              <TableHead>Subject</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Assigned Agent</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Last Message</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map((t) => (
-              <TableRow key={t._id}>
-                <TableCell className="font-mono text-xs font-semibold text-gray-900">
-                  {t.ticketCode}
-                </TableCell>
-                <TableCell>
-                  <p className="font-medium text-gray-900 line-clamp-1">{t.subject}</p>
-                  <span className="text-xs text-muted-foreground capitalize">
-                    {t.category}
-                  </span>
-                </TableCell>
-                <TableCell className="text-sm text-gray-600">
-                  Customer ({typeof t.customerId === 'string' ? t.customerId : t.customerId.fullName})
-                </TableCell>
-                <TableCell>
-                  <Select
-                    value={t.agentId ? String(t.agentId) : 'unassigned'}
-                    onValueChange={(val) => handleAssignAgent(t._id, val)}
-                  >
-                    <SelectTrigger className="h-8 text-xs w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="unassigned">Unassigned</SelectItem>
-                      <SelectItem value="Agent One">Agent One</SelectItem>
-                      <SelectItem value="Admin User">Admin User</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-                <TableCell>
-                  <Select
-                    value={t.priority}
-                    onValueChange={(val: any) => handleChangePriority(t._id, val)}
-                  >
-                    <SelectTrigger className="h-8 text-xs w-28 border-0 bg-transparent p-0">
-                      <PriorityBadge priority={t.priority} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="urgent">Urgent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-                <TableCell>
-                  <StatusBadge status={t.status} />
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
-                  {t.lastMessageAt ? timeAgo(t.lastMessageAt) : 'Recently'}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    {t.status !== 'resolved' ? (
-                      <button
-                        onClick={() => handleUpdateStatus(t._id, 'resolved')}
-                        className="rounded px-2 py-1 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100"
-                      >
-                        Resolve
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleUpdateStatus(t._id, 'open')}
-                        className="rounded px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100"
-                      >
-                        Reopen
-                      </button>
-                    )}
-                  </div>
-                </TableCell>
+        {loading ? (
+          <div className="flex items-center justify-center p-12 text-sm text-muted-foreground">
+            <RefreshCw className="mr-2 h-4 w-4 animate-spin text-indigo-600" />
+            Loading customer support tickets from database...
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Ticket Code</TableHead>
+                <TableHead>Subject</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-sm text-muted-foreground">
+                    No support tickets found matching your criteria.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filtered.map((ticket) => (
+                  <TableRow key={ticket._id}>
+                    <TableCell className="font-mono text-xs font-semibold text-indigo-600">
+                      {ticket.ticketCode}
+                    </TableCell>
+                    <TableCell>
+                      <span className="font-medium text-gray-900 block max-w-xs truncate">
+                        {ticket.subject}
+                      </span>
+                    </TableCell>
+                    <TableCell className="capitalize text-xs text-muted-foreground">
+                      {ticket.category}
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={ticket.status}
+                        onValueChange={(val) =>
+                          handleUpdateStatus(ticket._id, val as SupportStatus)
+                        }
+                      >
+                        <SelectTrigger className="h-7 w-28 text-xs border-none shadow-none p-0 focus:ring-0">
+                          <StatusBadge status={ticket.status} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="open">Open</SelectItem>
+                          <SelectItem value="in_progress">In Progress</SelectItem>
+                          <SelectItem value="resolved">Resolved</SelectItem>
+                          <SelectItem value="closed">Closed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={ticket.priority}
+                        onValueChange={(val) =>
+                          handleChangePriority(ticket._id, val as SupportPriority)
+                        }
+                      >
+                        <SelectTrigger className="h-7 w-24 text-xs border-none shadow-none p-0 focus:ring-0">
+                          <PriorityBadge priority={ticket.priority} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="urgent">Urgent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {timeAgo(ticket.createdAt)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 gap-1 text-xs text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                        asChild
+                      >
+                        <Link to={`/user/support/${ticket._id}`}>
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          Open Chat
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        )}
       </div>
     </div>
   )
